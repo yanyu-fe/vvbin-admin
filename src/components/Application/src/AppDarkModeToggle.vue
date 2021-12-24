@@ -64,7 +64,6 @@
       background-color: #fff;
       border-radius: 50%;
       transition: transform 0.5s, background-color 0.5s;
-      will-change: transform;
     }
 
     &--dark {
