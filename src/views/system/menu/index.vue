@@ -41,7 +41,7 @@
         :data-source="dataSource"
       />
     </div>
-    <NewFormModel :menus="menuData" v-model:visible="newModal" />
+    <NewFormModel :menus="menuData" v-model:edit="modalEdit" v-model:visible="newModal" />
   </div>
 </template>
 
@@ -53,7 +53,7 @@
   import { MenuData, MenuTreeData } from '/@/api/system/model/menuModel';
   import { usePaginate } from '/@/views/system/menu/usePaginate';
   import NewFormModel from './modules/newFormModel';
-
+  const modalEdit = ref(false);
   const formRef = ref();
   const menuData = ref<MenuTreeData[]>([]);
   const formState = reactive({
@@ -139,16 +139,20 @@
   .pro-menu {
     margin: 20px;
   }
+
   .pro-menu-form {
     background: #fff;
     padding: 30px 20px;
     margin-bottom: 20px;
   }
+
   .pro-menu-table {
     background: white;
+
     .pro-menu-table-actions {
       padding: 16px;
       display: flex;
+
       .pro-menu-table-actions-left {
         margin-right: auto;
         font-size: 16px;
@@ -162,6 +166,7 @@
   .pro-menu-form .ant-form-item {
     margin-bottom: 0;
   }
+
   .pro-menu-table .ant-table-placeholder {
     border-top-width: 0;
   }

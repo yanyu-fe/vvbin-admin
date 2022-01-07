@@ -1,4 +1,4 @@
-import { computed, defineComponent, reactive, ref, toRefs, VNode } from 'vue';
+import { computed, defineComponent, reactive, ref, toRefs, VNode, watch, nextTick } from 'vue';
 import {
   Modal,
   Form,
@@ -12,7 +12,7 @@ import {
   TreeSelectNode,
 } from 'ant-design-vue';
 import './newFormModal.less';
-import { MenuTreeData } from '/@/api/system/model/menuModel';
+import { FormTreeData, MenuData, MenuTreeData } from '/@/api/system/model/menuModel';
 export default defineComponent({
   name: 'MenuNewFormModel',
   props: {
@@ -24,24 +24,30 @@ export default defineComponent({
       type: Array as PropType<MenuTreeData[]>,
       default: () => [],
     },
+    edit: {
+      type: Boolean,
+      default: false,
+    },
+    editData: {
+      type: Object as PropType<MenuData>,
+      default: () => ({}),
+    },
   },
-  emits: ['visible', 'update:visible'],
+  emits: ['update:visible', 'update:edit'],
   setup(_props, { emit }) {
     const { menus: propsMenus } = toRefs(_props);
-    const onCancel = () => {
-      emit('update:visible', !_props.visible);
-    };
-    const formData = reactive({
+    const formData = reactive<FormTreeData>({
       title: '',
       locale: '',
       name: '',
       component: '',
       path: '',
-      redirect: '',
+      redirect: null,
       hideBreadcrumb: true,
       hideMenu: true,
       orderNo: 0,
       pid: 0,
+      icon: '',
     });
     const labelCol = reactive({
       span: 6,
@@ -49,7 +55,64 @@ export default defineComponent({
     const wrapperCol = reactive({
       span: 16,
     });
+    const { editData } = toRefs(_props);
+    watch(
+      () => _props.edit,
+      (value) => {
+        // 如果变成了edit，自动赋值
+        if (value) {
+          nextTick(() => {
+            // 赋值
+            formData.pid = editData.value.pid;
+            formData.id = editData.value.id;
+            formData.hideBreadcrumb =
+              editData.value.hideBreadcrumb === 0 || !editData.value.hideBreadcrumb;
+            formData.hideMenu = editData.value.hideMenu === 0 || !editData.value.hideMenu;
+            formData.title = editData.value.title;
+            formData.name = editData.value.name;
+            formData.component = editData.value.component;
+            formData.path = editData.value.path;
+            formData.locale = editData.value.locale;
+            formData.orderNo = editData.value.orderNo;
+            formData.icon = editData.value.icon;
+          });
+        }
+      },
+    );
     const menuData = ref<VNode[]>([]);
+    const rules = reactive({
+      title: [
+        {
+          required: true,
+          message: '请输入菜单名称',
+        },
+      ],
+      locale: [
+        {
+          required: true,
+          message: '请先配置国际化',
+        },
+      ],
+      name: [
+        {
+          required: true,
+          message: '页面标识不能为空',
+        },
+      ],
+      component: [
+        {
+          required: true,
+          message: '组件地址不能为空',
+        },
+      ],
+      path: [
+        {
+          required: true,
+          message: '访问地址不能为空',
+        },
+      ],
+    });
+    const { validate, resetFields, validateInfos } = Form.useForm(formData, rules);
     menuData.value.push(<TreeSelectNode key={0} title="根节点" value={0} />);
     const menuNodes = (menus?: MenuTreeData[]) => {
       // 获取数据
@@ -76,45 +139,66 @@ export default defineComponent({
       }
       return menuData.value;
     });
-
+    const onSubmit = () => {
+      validate()
+        .then(() => {
+          // 验证通过
+        })
+        .catch(() => {
+          // TODO
+        });
+    };
+    const onCancel = () => {
+      resetFields();
+      emit('update:visible', !_props.visible);
+      if (_props.edit) {
+        emit('update:edit', false);
+      }
+    };
     return () => {
       return (
         <>
-          <Modal title="新增菜单" width={750} visible={_props.visible} onCancel={onCancel}>
+          <Modal
+            title={_props.edit ? '编辑菜单' : '新增菜单'}
+            width={750}
+            onOk={onSubmit}
+            visible={_props.visible}
+            onCancel={onCancel}
+          >
             <Form labelCol={labelCol} wrapperCol={wrapperCol} class="new-form-modal">
               <Row>
                 <Col span={12}>
-                  <FormItem name="title" label="名称">
+                  <FormItem {...validateInfos.title} label="名称">
                     <Input v-model:value={formData.title} />
                   </FormItem>
                 </Col>
                 <Col span={12}>
-                  <FormItem name="locale" label="多语言">
+                  <FormItem {...validateInfos.locale} label="多语言">
                     <Input v-model:value={formData.locale} />
                   </FormItem>
                 </Col>
                 <Col span={12}>
-                  <FormItem name="name" label="标识">
+                  <FormItem {...validateInfos.name} label="标识">
                     <Input v-model:value={formData.name} />
                   </FormItem>
                 </Col>
                 <Col span={12}>
-                  <FormItem name="component" label="组件">
+                  <FormItem {...validateInfos.component} label="组件">
                     <Input v-model:value={formData.component} />
                   </FormItem>
                 </Col>
                 <Col span={12}>
-                  <FormItem name="path" label="地址">
+                  <FormItem {...validateInfos.path} label="地址">
                     <Input v-model:value={formData.path} />
                   </FormItem>
                 </Col>
                 <Col span={12}>
-                  <FormItem name="redirect" label="重定向">
+                  <FormItem {...validateInfos.redirect} label="重定向">
                     <Input v-model:value={formData.redirect} />
                   </FormItem>
                 </Col>
                 <Col span={12}>
-                  <FormItem name="pid" label="父级菜单">
+                  <FormItem {...validateInfos.pid} label="父级菜单">
                     <TreeSelect
                       showSearch
                       placeholder="选择关联菜单"
@@ -127,12 +211,12 @@ export default defineComponent({
                   </FormItem>
                 </Col>
                 <Col span={12}>
-                  <FormItem name="orderNo" label="排序">
+                  <FormItem {...validateInfos.orderNo} label="排序">
                     <InputNumber v-model:value={formData.orderNo} />
                   </FormItem>
                 </Col>
                 <Col span={12}>
-                  <FormItem name="hideBreadcrumb" label="面包屑">
+                  <FormItem {...validateInfos.hideBreadcrumb} label="面包屑">
                     <Switch
                       v-model:checked={formData.hideBreadcrumb}
                       checkedChildren={'显'}
@@ -141,7 +225,7 @@ export default defineComponent({
                   </FormItem>
                 </Col>
                 <Col span={12}>
-                  <FormItem name="hideMenu" label="是否显示">
+                  <FormItem {...validateInfos.hideMenu} label="是否显示">
                     <Switch
                       v-model:checked={formData.hideMenu}
                       checkedChildren={'显'}
